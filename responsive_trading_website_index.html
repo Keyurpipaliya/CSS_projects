@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo Trading Platform — Responsive Interactive UI</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--accent:#06b6d4}
+    body{background:linear-gradient(180deg,#071026 0%, #0b1220 100%);color:#e6eef8;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .navbar-brand{font-weight:700}
+    .market-list .list-group-item{background:transparent;border:1px solid rgba(255,255,255,0.04);cursor:pointer}
+    .market-list .list-group-item.active{background:linear-gradient(90deg, rgba(6,182,212,0.12), rgba(6,182,212,0.04));border-color:rgba(6,182,212,0.25)}
+    .card-trade{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04)}
+    .price-up{color:#10b981}
+    .price-down{color:#ef4444}
+    .small-muted{color:var(--muted)}
+    .order-book td, .order-book th{font-size:13px}
+    .chart-canvas{width:100%;height:320px;background:linear-gradient(180deg,#021124, #041628);border-radius:8px}
+    .trade-btn-buy{background:#10b981;border:none}
+    .trade-btn-sell{background:#ef4444;border:none}
+    @media (max-width:991px){
+      .chart-canvas{height:220px}
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-transparent px-3">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">TradeDemo</a>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <div class="small text-muted me-3">Balance: <strong id="balanceDisplay">₹10,000</strong></div>
+        <button class="btn btn-outline-light btn-sm" id="resetBtn">Reset</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container-fluid px-3 py-3">
+    <div class="row g-3">
+      <!-- Left: Markets -->
+      <div class="col-12 col-xl-2">
+        <div class="card card-trade p-3">
+          <h6 class="mb-3">Markets</h6>
+          <div class="market-list">
+            <ul class="list-group" id="marketList"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Chart + Order Book -->
+      <div class="col-12 col-xl-7">
+        <div class="card card-trade p-3 mb-3">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+              <h5 id="symbolTitle">BTC/INR</h5>
+              <div class="small-muted">Last price: <span id="lastPrice">—</span> • <span id="changePct">—</span></div>
+            </div>
+            <div class="text-end small-muted">Simulated live feed • demo only</div>
+          </div>
+          <div class="chart-canvas" id="chartCanvas"></div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <div class="card card-trade p-3">
+              <h6>Order Book (Top)</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-borderless order-book mb-0">
+                  <thead>
+                    <tr><th>Price</th><th>Qty</th></tr>
+                  </thead>
+                  <tbody id="bidsTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <div class="card card-trade p-3">
+              <h6>Order Book (Ask)</h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-borderless order-book mb-0">
+                  <thead>
+                    <tr><th>Price</th><th>Qty</th></tr>
+                  </thead>
+                  <tbody id="asksTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Trade panel / Portfolio -->
+      <div class="col-12 col-xl-3">
+        <div class="card card-trade p-3 mb-3">
+          <h6>Place Order</h6>
+          <div class="mb-2 small-muted">Selected: <strong id="panelSymbol">BTC/INR</strong></div>
+          <div class="mb-2">
+            <label class="form-label small">Type</label>
+            <select id="orderType" class="form-select form-select-sm">
+              <option value="market">Market</option>
+              <option value="limit">Limit</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Side</label>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm trade-btn-buy flex-fill" id="sideBuy">Buy</button>
+              <button class="btn btn-sm trade-btn-sell flex-fill" id="sideSell">Sell</button>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Price (INR)</label>
+            <input type="number" id="orderPrice" class="form-control form-control-sm" placeholder="Limit price" step="0.01">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Quantity</label>
+            <input type="number" id="orderQty" class="form-control form-control-sm" placeholder="Amount" step="0.0001">
+          </div>
+          <div class="d-grid gap-2">
+            <button class="btn btn-success" id="placeOrderBtn">Place Order</button>
+          </div>
+        </div>
+
+        <div class="card card-trade p-3 mb-3">
+          <h6>Portfolio</h6>
+          <div class="small-muted mb-2">Cash: <strong id="cashBal">₹10,000</strong></div>
+          <div class="small-muted mb-2">Holdings:</div>
+          <ul class="list-group" id="holdingsList"></ul>
+        </div>
+
+        <div class="card card-trade p-3">
+          <h6>Recent Trades</h6>
+          <ul class="list-group" id="tradeList"></ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* Demo trading platform JS (client-side simulation)
+       Features:
+       - Simulated market feed (random walk) for multiple symbols
+       - Order book (simple aggregated levels)
+       - Place market & limit orders, match engine basic
+       - Portfolio and recent trades stored in localStorage
+    */
+
+    const SYMBOLS = [
+      {sym:'BTC/INR', price:4200000},
+      {sym:'ETH/INR', price:220000},
+      {sym:'XRP/INR', price:52.5},
+      {sym:'SOL/INR', price:4200}
+    ];
+
+    // state
+    let markets = {};
+    let selected = SYMBOLS[0].sym;
+    let feedInterval = null;
+
+    // local storage keys
+    const LS_KEY = 'demo_trade_state_v1';
+
+    function init(){
+      // init markets
+      SYMBOLS.forEach(s=>{
+        markets[s.sym] = {
+          price: s.price,
+          history: Array.from({length:60}, (_,i)=>s.price * (1 + (Math.random()-0.5)*0.01)),
+          bids: [],
+          asks: []
+        };
+        // seed orderbook
+        seedOrderBook(s.sym);
+      });
+
+      // load saved state
+      const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      if(saved){
+        if(saved.wallet) wallet = saved.wallet;
+        if(saved.trades) trades = saved.trades;
+      }
+
+      renderMarketList();
+      openMarket(selected);
+      startFeed();
+      attachHandlers();
+      renderPortfolio();
+      renderRecentTrades();
+    }
+
+    function seedOrderBook(sym){
+      const base = markets[sym].price;
+      markets[sym].bids = [];
+      markets[sym].asks = [];
+      for(let i=0;i<8;i++){
+        const pBid = +(base * (1 - (i+1)*0.001)).toFixed(2);
+        const pAsk = +(base * (1 + (i+1)*0.001)).toFixed(2);
+        markets[sym].bids.push({price:pBid, qty: +(Math.random()*3+0.1).toFixed(4)});
+        markets[sym].asks.push({price:pAsk, qty: +(Math.random()*3+0.1).toFixed(4)});
+      }
+    }
+
+    function renderMarketList(){
+      const el = document.getElementById('marketList'); el.innerHTML = '';
+      SYMBOLS.forEach(s=>{
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        if(s.sym===selected) li.classList.add('active');
+        li.innerHTML = `<div><strong>${s.sym}</strong><div class="small-muted small">₹${Number(markets[s.sym].price).toLocaleString()}</div></div><div id='p_${s.sym.replace('/','_')}'></div>`;
+        li.onclick = ()=>{ selected = s.sym; openMarket(s.sym); renderMarketList(); };
+        el.appendChild(li);
+      });
+    }
+
+    function openMarket(sym){
+      document.getElementById('symbolTitle').textContent = sym;
+      document.getElementById('panelSymbol').textContent = sym;
+      selected = sym;
+      renderChart();
+      renderOrderBook();
+    }
+
+    // chart: simple canvas sparkline-like chart
+    function renderChart(){
+      const canvas = document.getElementById('chartCanvas');
+      canvas.innerHTML = '';
+      const cv = document.createElement('canvas'); cv.width = canvas.clientWidth; cv.height = canvas.clientHeight; canvas.appendChild(cv);
+      const ctx = cv.getContext('2d');
+      const data = markets[selected].history;
+      // draw grid
+      ctx.clearRect(0,0,cv.width,cv.height);
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      for(let i=0;i<5;i++){ ctx.beginPath(); ctx.moveTo(0, i*cv.height/4); ctx.lineTo(cv.width, i*cv.height/4); ctx.stroke(); }
+
+      const min = Math.min(...data); const max = Math.max(...data);
+      const pad = 8;
+      ctx.beginPath();
+      data.forEach((v,i)=>{
+        const x = pad + (i/(data.length-1))*(cv.width-2*pad);
+        const y = pad + (1 - (v-min)/(max-min))*(cv.height-2*pad);
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.strokeStyle = '#06b6d4'; ctx.lineWidth = 2; ctx.stroke();
+
+      // last price
+      const last = data[data.length-1];
+      document.getElementById('lastPrice').textContent = '₹' + Number(last).toLocaleString();
+      // change pct
+      const prev = data[data.length-2]||data[0];
+      const pct = ((last - prev)/prev*100).toFixed(2);
+      const chEl = document.getElementById('changePct');
+      chEl.textContent = (pct>0?'+':'') + pct + '%';
+      chEl.className = pct>=0 ? 'price-up' : 'price-down';
+
+    }
+
+    function renderOrderBook(){
+      const bidsEl = document.getElementById('bidsTable'); const asksEl = document.getElementById('asksTable');
+      bidsEl.innerHTML = markets[selected].bids.slice(0,8).map(b=>`<tr><td class="price-up">₹${b.price.toLocaleString()}</td><td>${b.qty}</td></tr>`).join('');
+      asksEl.innerHTML = markets[selected].asks.slice(0,8).map(a=>`<tr><td class="price-down">₹${a.price.toLocaleString()}</td><td>${a.qty}</td></tr>`).join('');
+    }
+
+    // simulated feed
+    function startFeed(){
+      if(feedInterval) clearInterval(feedInterval);
+      feedInterval = setInterval(()=>{
+        SYMBOLS.forEach(s=>{
+          const m = markets[s.sym];
+          // random walk small change
+          const drift = (Math.random()-0.5)*2; // -1..1
+          const change = m.price * (drift * 0.0005);
+          m.price = Math.max(0.01, +(m.price + change).toFixed(2));
+          m.history.push(m.price); if(m.history.length>120) m.history.shift();
+          // shift orderbook slightly
+          m.bids = m.bids.map(b=>({price: +(b.price * (1 - (Math.random()-0.5)*0.0002)).toFixed(2), qty:b.qty}));
+          m.asks = m.asks.map(a=>({price: +(a.price * (1 + (Math.random()-0.5)*0.0002)).toFixed(2), qty:a.qty}));
+        });
+        // update UI of selected
+        renderChart(); renderOrderBook(); renderMarketList();
+      }, 900);
+    }
+
+    // Simple wallet & trades
+    let wallet = {cash:10000, holdings:{}}; // INR and base assets
+    let trades = [];
+
+    function saveState(){
+      localStorage.setItem(LS_KEY, JSON.stringify({wallet, trades}));
+    }
+
+    function renderPortfolio(){
+      document.getElementById('cashBal').textContent = '₹' + Number(wallet.cash).toLocaleString();
+      document.getElementById('balanceDisplay').textContent = '₹' + Number(wallet.cash).toLocaleString();
+      const ul = document.getElementById('holdingsList'); ul.innerHTML = '';
+      const keys = Object.keys(wallet.holdings);
+      if(!keys.length) ul.innerHTML = '<li class="list-group-item bg-transparent small-muted">No holdings</li>';
+      keys.forEach(k=>{
+        const li = document.createElement('li'); li.className = 'list-group-item bg-transparent d-flex justify-content-between align-items-center';
+        const qty = wallet.holdings[k];
+        li.innerHTML = `<div><strong>${k}</strong><div class="small-muted">Qty: ${qty}</div></div><div id='val_${k.replace('/','_')}'></div>`;
+        ul.appendChild(li);
+      });
+    }
+
+    function renderRecentTrades(){
+      const el = document.getElementById('tradeList'); el.innerHTML = '';
+      if(!trades.length) el.innerHTML = '<li class="list-group-item bg-transparent small-muted">No trades yet</li>';
+      trades.slice().reverse().slice(0,8).forEach(t=>{
+        const li = document.createElement('li'); li.className='list-group-item bg-transparent';
+        li.innerHTML = `<div class="d-flex justify-content-between"><div><strong>${t.side.toUpperCase()}</strong> ${t.sym}</div><div class="small-muted">₹${Number(t.price).toLocaleString()}</div></div><div class="small-muted">Qty ${t.qty} • ${new Date(t.time).toLocaleTimeString()}</div>`;
+        el.appendChild(li);
+      });
+    }
+
+    // order placement and matching (simplified)
+    function placeOrder(){
+      const type = document.getElementById('orderType').value;
+      const side = document.getElementById('sideBuy').classList.contains('active') ? 'buy' : 'sell';
+      const qty = Number(document.getElementById('orderQty').value);
+      const priceInput = Number(document.getElementById('orderPrice').value);
+      if(!qty || qty <= 0) return alert('Enter valid quantity');
+      const market = markets[selected];
+      const marketPrice = market.price;
+
+      if(type==='market'){
+        // execute at market price
+        const execPrice = marketPrice;
+        executeTrade({sym:selected, side, price:execPrice, qty});
+      } else {
+        const limitPrice = priceInput;
+        if(!limitPrice || limitPrice <=0) return alert('Enter limit price');
+        // add to orderbook (naive)
+        if(side==='buy'){
+          market.bids.unshift({price:limitPrice, qty});
+          market.bids.sort((a,b)=>b.price - a.price);
+        } else {
+          market.asks.unshift({price:limitPrice, qty});
+          market.asks.sort((a,b)=>a.price - b.price);
+        }
+        alert('Limit order added to book (demo)');
+      }
+      renderOrderBook();
+    }
+
+    function executeTrade({sym, side, price, qty}){
+      // update wallet
+      const cost = price * qty;
+      if(side==='buy'){
+        if(wallet.cash < cost) return alert('Insufficient balance');
+        wallet.cash = +(wallet.cash - cost).toFixed(2);
+        wallet.holdings[sym] = +( (wallet.holdings[sym] || 0) + qty ).toFixed(6);
+      } else {
+        const held = wallet.holdings[sym] || 0;
+        if(held < qty) return alert('Not enough holdings to sell');
+        wallet.holdings[sym] = +(held - qty).toFixed(6);
+        wallet.cash = +(wallet.cash + cost).toFixed(2);
+        if(wallet.holdings[sym] <= 0.0000001) delete wallet.holdings[sym];
+      }
+      const t = {sym, side, price, qty, time: Date.now()};
+      trades.push(t); saveState(); renderPortfolio(); renderRecentTrades();
+    }
+
+    // UI interactions
+    function attachHandlers(){
+      // side buttons
+      document.getElementById('sideBuy').addEventListener('click', ()=>{ document.getElementById('sideBuy').classList.add('active'); document.getElementById('sideSell').classList.remove('active'); });
+      document.getElementById('sideSell').addEventListener('click', ()=>{ document.getElementById('sideSell').classList.add('active'); document.getElementById('sideBuy').classList.remove('active'); });
+      // default buy active
+      document.getElementById('sideBuy').classList.add('active');
+
+      document.getElementById('placeOrderBtn').addEventListener('click', placeOrder);
+      document.getElementById('resetBtn').addEventListener('click', ()=>{ if(confirm('Reset demo data?')){ localStorage.removeItem(LS_KEY); wallet={cash:10000, holdings:{}}; trades=[]; SYMBOLS.forEach(s=>seedOrderBook(s.sym)); renderPortfolio(); renderRecentTrades(); renderOrderBook(); } });
+
+      // quick click on orderbook price to prefill
+      document.getElementById('bidsTable').addEventListener('click', (e)=>{ const td = e.target.closest('td'); if(!td) return; const row=td.parentElement; const price = Number(row.cells[0].innerText.replace(/[₹,]/g,'')); document.getElementById('orderPrice').value = price; document.getElementById('orderType').value='limit'; });
+      document.getElementById('asksTable').addEventListener('click', (e)=>{ const td = e.target.closest('td'); if(!td) return; const row=td.parentElement; const price = Number(row.cells[0].innerText.replace(/[₹,]/g,'')); document.getElementById('orderPrice').value = price; document.getElementById('orderType').value='limit'; });
+    }
+
+    // init wallet restore
+    function loadState(){ const s = JSON.parse(localStorage.getItem(LS_KEY)||'null'); if(s){ if(s.wallet) wallet = s.wallet; if(s.trades) trades = s.trades; } }
+
+    // start
+    loadState(); init();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
